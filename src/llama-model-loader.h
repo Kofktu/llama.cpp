@@ -42,6 +42,18 @@ struct llama_model_loader {
                 throw std::runtime_error(format("tensor '%s' data is not within the file bounds, model is corrupted or incomplete", ggml_get_name(tensor)));
             }
         }
+
+        llama_tensor_weight(const struct gguf_context * gguf_ctx, ggml_tensor * tensor, const size_t size) : idx(0), tensor(tensor) {
+            const int tensor_idx = gguf_find_tensor(gguf_ctx, ggml_get_name(tensor));
+            if (tensor_idx < 0) {
+                throw std::runtime_error(format("tensor '%s' not found in the model", ggml_get_name(tensor)));
+            }
+
+            offs = gguf_get_data_offset(gguf_ctx) + gguf_get_tensor_offset(gguf_ctx, tensor_idx);
+            if (offs + ggml_nbytes(tensor) < offs || offs + ggml_nbytes(tensor) > size) {
+                throw std::runtime_error(format("tensor '%s' data is not within the buffer bounds, model is corrupted or incomplete", ggml_get_name(tensor)));
+            }
+        }
     };
 
     // custom comparator to sort weights more nicely by layer
@@ -80,6 +92,10 @@ struct llama_model_loader {
 
     llama_mmaps mappings;
 
+    // 버퍼 로딩 모드일 때 사용할 메모리 주소와 크기
+    const void *buffer_addr = nullptr;
+    size_t      buffer_size = 0;
+
     std::map<std::string, llama_tensor_weight, weight_name_comparer> weights_map;
     std::unordered_map<std::string, llama_model_kv_override> kv_overrides;
     const llama_model_tensor_buft_override * tensor_buft_overrides;
@@ -99,6 +115,14 @@ struct llama_model_loader {
         std::vector<std::string> & splits, // optional, only need if the split does not follow naming scheme
         bool use_mmap,
         bool use_direct_io,
+        bool check_tensors,
+        bool no_alloc,
+        const llama_model_kv_override * param_overrides_p,
+        const llama_model_tensor_buft_override * param_tensor_buft_overrides_p);
+
+    llama_model_loader(
+        const void * buffer,
+        size_t size,
         bool check_tensors,
         bool no_alloc,
         const llama_model_kv_override * param_overrides_p,
