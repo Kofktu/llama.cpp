@@ -751,6 +751,8 @@ struct gguf_context * gguf_init_from_file(const char * fname, struct gguf_init_p
     return result;
 }
 
+#include "gguf-buffer.inc"
+
 void gguf_free(struct gguf_context * ctx) {
     if (ctx == nullptr) {
         return;

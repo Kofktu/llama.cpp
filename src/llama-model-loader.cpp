@@ -948,7 +948,14 @@ void llama_model_loader::get_mapping_range(size_t * first, size_t * last, void *
 void llama_model_loader::load_data_for(struct ggml_tensor * cur) const {
     const auto & w = require_weight(ggml_get_name(cur));
 
-    if (use_mmap) {
+    if (buffer_addr != nullptr) {
+        const uint8_t * src = static_cast<const uint8_t *>(buffer_addr) + w.offs;
+        if (cur->data == nullptr) {
+            cur->data = const_cast<uint8_t *>(src);
+        } else {
+            memcpy(cur->data, src, ggml_nbytes(cur));
+        }
+    } else if (use_mmap) {
         const auto & mapping = mappings.at(w.idx);
         if (cur->data == nullptr) {
             cur->data = (uint8_t *)mapping->addr() + w.offs;
@@ -1070,6 +1077,7 @@ bool llama_model_loader::load_all_data(
         return backend;
     }(__func__);
 
+
     if (upload_backend) {
         LLAMA_LOG_DEBUG("%s: using async uploads for device %s, buffer type %s, backend %s\n", __func__,
             ggml_backend_dev_name(ggml_backend_get_device(upload_backend)),
@@ -1092,7 +1100,31 @@ bool llama_model_loader::load_all_data(
 
         size_t n_size = ggml_nbytes(cur);
 
-        if (use_mmap) {
+        if (buffer_addr != nullptr) {
+            const uint8_t * data = static_cast<const uint8_t *>(buffer_addr) + weight->offs;
+            
+            if (check_tensors) {
+                validation_result.emplace_back(std::async(std::launch::async, [cur, data, n_size] {
+                    return std::make_pair(cur, ggml_validate_row_data(cur->type, data, n_size));
+                }));
+            }
+
+            ggml_backend_buffer_t buf = nullptr;
+            if (bufs.count(weight->idx)) {
+                buf = bufs.at(weight->idx);
+            }
+            
+            if (buf && cur->data == nullptr) {
+                ggml_backend_tensor_alloc(buf, cur, const_cast<uint8_t *>(data));
+                
+                if (lmlocks) {
+                    const auto & lmlock = lmlocks->at(weight->idx);
+                    lmlock->grow_to(weight->offs + n_size);
+                }
+            } else {
+                ggml_backend_tensor_set(cur, data, 0, n_size);
+            }
+        } else if (use_mmap) {
             const auto & mapping = mappings.at(weight->idx);
             ggml_backend_buffer_t buf_mmap = nullptr;
             if (bufs.count(weight->idx)) {

@@ -7021,7 +7021,35 @@ bool llama_model::load_tensors(llama_model_loader & ml) {
         bool is_default_buft = buft == ggml_backend_dev_buffer_type(dev);
 
         std::vector<ggml_backend_buffer_ptr> bufs;
-        if (ml.use_mmap && use_mmap_buffer && buffer_from_host_ptr_supported && is_default_buft) {
+        if (ml.buffer_addr != nullptr && buffer_from_host_ptr_supported) {
+            size_t first = ml.buffer_size;
+            size_t last = 0;
+
+            for (ggml_tensor * tensor = ggml_get_first_tensor(ctx); tensor ; tensor = ggml_get_next_tensor(ctx, tensor)) {
+                const auto * weight = ml.get_weight(ggml_get_name(tensor));
+                if (weight == nullptr) {
+                    continue;
+                }
+                
+                first = std::min(first, weight->offs);
+                last = std::max(last, weight->offs + ggml_nbytes(tensor));
+            }
+
+            if (first >= last) {
+                continue;
+            }
+
+            const size_t max_size = ggml_get_max_tensor_size(ctx);
+            void * host_ptr = const_cast<char *>(static_cast<const char *>(ml.buffer_addr) + first);
+            ggml_backend_buffer_t buf = ggml_backend_dev_buffer_from_host_ptr(dev, host_ptr, last - first, max_size);
+
+            if (buf == nullptr) {
+                throw std::runtime_error(format("unable to allocate %s buffer", ggml_backend_buft_name(buft)));
+            }
+
+            bufs.emplace_back(buf);
+            buf_map.emplace(0, buf);
+        } else if (ml.use_mmap && use_mmap_buffer && buffer_from_host_ptr_supported && is_default_buft) {
             GGML_ASSERT(!ml.no_alloc);
             for (uint32_t idx = 0; idx < ml.files.size(); idx++) {
                 // only the mmap region containing the tensors in the model is mapped to the backend buffer
