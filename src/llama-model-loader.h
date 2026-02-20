@@ -92,7 +92,7 @@ struct llama_model_loader {
 
     llama_mmaps mappings;
 
-    // 버퍼 로딩 모드일 때 사용할 메모리 주소와 크기
+    // memory address and size for buffer-based loading mode
     const void *buffer_addr = nullptr;
     size_t      buffer_size = 0;
 

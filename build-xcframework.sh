@@ -418,30 +418,30 @@ cmake -B build-ios-sim -G Xcode \
     -S .
 cmake --build build-ios-sim --config Release -- -quiet
 
-# echo "Building for iOS devices..."
-# cmake -B build-ios-device -G Xcode \
-#     "${COMMON_CMAKE_ARGS[@]}" \
-#     -DCMAKE_OSX_DEPLOYMENT_TARGET=${IOS_MIN_OS_VERSION} \
-#     -DCMAKE_SYSTEM_NAME=iOS \
-#     -DCMAKE_OSX_SYSROOT=iphoneos \
-#     -DCMAKE_OSX_ARCHITECTURES="arm64" \
-#     -DCMAKE_XCODE_ATTRIBUTE_SUPPORTED_PLATFORMS=iphoneos \
-#     -DCMAKE_C_FLAGS="${COMMON_C_FLAGS}" \
-#     -DCMAKE_CXX_FLAGS="${COMMON_CXX_FLAGS}" \
-#     -DLLAMA_OPENSSL=OFF \
-#     -S .
-# cmake --build build-ios-device --config Release -- -quiet
+echo "Building for iOS devices..."
+cmake -B build-ios-device -G Xcode \
+    "${COMMON_CMAKE_ARGS[@]}" \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=${IOS_MIN_OS_VERSION} \
+    -DCMAKE_SYSTEM_NAME=iOS \
+    -DCMAKE_OSX_SYSROOT=iphoneos \
+    -DCMAKE_OSX_ARCHITECTURES="arm64" \
+    -DCMAKE_XCODE_ATTRIBUTE_SUPPORTED_PLATFORMS=iphoneos \
+    -DCMAKE_C_FLAGS="${COMMON_C_FLAGS}" \
+    -DCMAKE_CXX_FLAGS="${COMMON_CXX_FLAGS}" \
+    -DLLAMA_OPENSSL=OFF \
+    -S .
+cmake --build build-ios-device --config Release -- -quiet
 
-# echo "Building for macOS..."
-# cmake -B build-macos -G Xcode \
-#     "${COMMON_CMAKE_ARGS[@]}" \
-#     -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOS_MIN_OS_VERSION} \
-#     -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
-#     -DCMAKE_C_FLAGS="${COMMON_C_FLAGS}" \
-#     -DCMAKE_CXX_FLAGS="${COMMON_CXX_FLAGS}" \
-#     -DLLAMA_OPENSSL=OFF \
-#     -S .
-# cmake --build build-macos --config Release -- -quiet
+echo "Building for macOS..."
+cmake -B build-macos -G Xcode \
+    "${COMMON_CMAKE_ARGS[@]}" \
+    -DCMAKE_OSX_DEPLOYMENT_TARGET=${MACOS_MIN_OS_VERSION} \
+    -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+    -DCMAKE_C_FLAGS="${COMMON_C_FLAGS}" \
+    -DCMAKE_CXX_FLAGS="${COMMON_CXX_FLAGS}" \
+    -DLLAMA_OPENSSL=OFF \
+    -S .
+cmake --build build-macos --config Release -- -quiet
 
 # echo "Building for visionOS..."
 # cmake -B build-visionos -G Xcode \
@@ -509,8 +509,8 @@ cmake --build build-ios-sim --config Release -- -quiet
 # Setup frameworks and copy binaries and headers
 echo "Setting up framework structures..."
 setup_framework_structure "build-ios-sim" ${IOS_MIN_OS_VERSION} "ios"
-# setup_framework_structure "build-ios-device" ${IOS_MIN_OS_VERSION} "ios"
-# setup_framework_structure "build-macos" ${MACOS_MIN_OS_VERSION} "macos"
+setup_framework_structure "build-ios-device" ${IOS_MIN_OS_VERSION} "ios"
+setup_framework_structure "build-macos" ${MACOS_MIN_OS_VERSION} "macos"
 # setup_framework_structure "build-visionos" ${VISIONOS_MIN_OS_VERSION} "visionos"
 # setup_framework_structure "build-visionos-sim" ${VISIONOS_MIN_OS_VERSION} "visionos"
 # setup_framework_structure "build-tvos-sim" ${TVOS_MIN_OS_VERSION} "tvos"
@@ -519,8 +519,8 @@ setup_framework_structure "build-ios-sim" ${IOS_MIN_OS_VERSION} "ios"
 # Create dynamic libraries from static libraries
 echo "Creating dynamic libraries from static libraries..."
 combine_static_libraries "build-ios-sim" "Release-iphonesimulator" "ios" "true"
-# combine_static_libraries "build-ios-device" "Release-iphoneos" "ios" "false"
-# combine_static_libraries "build-macos" "Release" "macos" "false"
+combine_static_libraries "build-ios-device" "Release-iphoneos" "ios" "false"
+combine_static_libraries "build-macos" "Release" "macos" "false"
 # combine_static_libraries "build-visionos" "Release-xros" "visionos" "false"
 # combine_static_libraries "build-visionos-sim" "Release-xrsimulator" "visionos" "true"
 # combine_static_libraries "build-tvos-sim" "Release-appletvsimulator" "tvos" "true"
@@ -531,7 +531,8 @@ echo "Creating XCFramework..."
 xcodebuild -create-xcframework \
     -framework $(pwd)/build-ios-sim/framework/llama.framework \
     -debug-symbols $(pwd)/build-ios-sim/dSYMs/llama.dSYM \
+    -framework $(pwd)/build-ios-device/framework/llama.framework \
+    -debug-symbols $(pwd)/build-ios-device/dSYMs/llama.dSYM \
+    -framework $(pwd)/build-macos/framework/llama.framework \
+    -debug-symbols $(pwd)/build-macos/dSYMs/llama.dSYM \
     -output $(pwd)/build-apple/llama.xcframework
-
-rm -rf $(pwd)/../Papago-iOS/Frameworks/Vendor/llama.xcframework
-mv $(pwd)/build-apple/llama.xcframework $(pwd)/../Papago-iOS/Frameworks/Vendor/llama.xcframework
